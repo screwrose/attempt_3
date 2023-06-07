@@ -26,11 +26,10 @@ class Matrix
     Matrix operator+(const Matrix& other) const; // +
     Matrix operator-(const Matrix& other) const; // -
     Matrix operator*(const Matrix& other) const; // *
-    Matrix operator/(const Matrix& other) const; // /
+    Matrix operator%(const Matrix& other) const; // %, used for inverse
 
-    double determinant() const;         //determinant calculation
-    void inverse(const Matrix& other);  //inverse matrix calculator
-
+    double determinant() const;                     //determinant calculation
+    Matrix calculateInverse(const Matrix& matrix);  //matrix inversion
 
 };
 
@@ -74,7 +73,6 @@ ostream& operator<<(ostream& out, const Matrix& matrix)
     }
     return out;
 }
-
 
 //assignment operator
 Matrix&Matrix::operator=(const Matrix& other)
@@ -150,16 +148,6 @@ Matrix Matrix::operator*(const Matrix& other) const
     return result;
 }
 
-//matrix "division"
-/*Matrix Matrix::operator/(const Matrix& other) const
-{
-    cout << "Now, there is no such thing as 'matrix division'. The closest we can get to the concept of dividing matrices,  is to get the inverse of a matrix" << endl 
-    << "and then use this inverse as a participant in a multiplication operation with another matrix." << endl;
-
-}
-*/
-
-
 //determinant
 double Matrix::determinant() const
 {
@@ -204,6 +192,91 @@ double Matrix::determinant() const
     return det;
 }
 
+//matrix inversion
+Matrix Matrix::operator%(const Matrix& other) const
+{
+    //check if the matrix is square
+    if (rows != columns)
+    {
+        throw runtime_error("Matrix must be square to calculate its inverse.");
+    }
+
+    //create an identity matrix of the same size as the original matrix
+    Matrix identity(rows, columns);
+    for (int i = 0; i < rows; i++)
+    {
+        for (int j = 0; j < columns; j++)
+        {
+            identity.data[i][j] = (i == j) ? 1.0 : 0.0; // enters 1s on the main diagonal
+        }
+    }
+
+    //create a copy of the original matrix to perform the operations
+    Matrix matrix = other;
+
+    //perform Gaussian elimination to obtain an upper triangular matrix
+    for (int i = 0; i < rows; i++)
+    {
+        //find the pivot row
+        int pivotRow = i;
+        for (int j = i + 1; j < rows; j++)
+        {
+            if (abs(matrix.data[j][i]) > abs(matrix.data[pivotRow][i]))
+            {
+                pivotRow = j;
+            }
+        }
+
+        //swap the current row with the pivot row
+        if (pivotRow != i)
+        {
+            swap(matrix.data[i], matrix.data[pivotRow]);
+            swap(identity.data[i], identity.data[pivotRow]);
+        }
+
+        //check if the matrix is singular (no inverse exists)
+        if (matrix.data[i][i] == 0.0)
+        {
+            throw runtime_error("Matrix is singular. Inverse does not exist.");
+        }
+
+        //scale the current row to make the pivot element equal to 1
+        double scale = matrix.data[i][i];
+        for (int j = 0; j < columns; j++)
+        {
+            matrix.data[i][j] /= scale;
+            identity.data[i][j] /= scale;
+        }
+
+        //eliminate the elements below the pivot
+        for (int j = i + 1; j < rows; j++)
+        {
+            double factor = matrix.data[j][i];
+            for (int k = 0; k < columns; k++)
+            {
+                matrix.data[j][k] -= factor * matrix.data[i][k];
+                identity.data[j][k] -= factor * identity.data[i][k];
+            }
+        }
+    }
+
+    //perform back substitution to obtain the inverse matrix
+    for (int i = rows - 1; i > 0; i--)
+    {
+        for (int j = i - 1; j >= 0; j--)
+        {
+            double factor = matrix.data[j][i];
+            for (int k = 0; k < columns; k++)
+            {
+                matrix.data[j][k] -= factor * matrix.data[i][k];
+                identity.data[j][k] -= factor * identity.data[i][k];
+            }
+        }
+    }
+
+    return identity;
+}
+
 int main()
 {
     Matrix A;
@@ -228,7 +301,22 @@ int main()
     cout << "A * B is: ";
     cout << E << endl;
 
-    cout << "The determinant of A is: " << A.determinant() << endl;
+    cout << "The determinant of A is: " << A.determinant() << endl << endl;
+    
+    Matrix F = A % A;
+    cout << "The inverse matrix of A is: " << F << endl;
+
+    Matrix G = B % B;
+    cout << "The inverse matrix of B is: " << G << endl;
+
+    Matrix H = A * G;
+    cout << "Matrix A 'divided' by matrix B is: " << H << endl;
+
+    Matrix I = B * F;
+    cout << "Matrix B 'divided' by matrix A is: " << I << endl;
+
+
+    cout << "Inverting matrices without using any libraries is a pain in the ass.." << endl;
 
     return 0;
 }
